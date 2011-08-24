@@ -210,7 +210,7 @@ class MailBase(object):
         list_name = list_name.lower()
         for headername in [
                 "delivered-to", "mailing-list", "x-beenthere",
-                "x-mailing-list"]:
+                "x-mailing-list", "list-id"]:
             if self[headername].contains(list_name):
                 self._processor.log_debug(
                     "... Mail is on mailing list {0}".format(list_name))
