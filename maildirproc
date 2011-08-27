@@ -42,6 +42,7 @@ import socket
 import subprocess
 import sys
 import time
+import signal
 from email import errors as email_errors
 from email import header as email_header
 from email import parser as email_parser
@@ -96,6 +97,11 @@ def safe_write(fp, s):
         fp.write(line)
     except UnicodeEncodeError:
         fp.write(ascii(line))
+
+def pid_write(pidfile):
+    pidfile = open(os.path.expanduser(pidfile), "w")
+    pidfile.write("{0}".format(os.getpid()))
+    pidfile.close
 
 
 class MailHeader(object):
@@ -598,10 +604,12 @@ class MaildirProcessor(object):
 
 ######################################################################
 
-def main(argv):
+def main():
     maildirproc_directory = "~/.maildirproc"
     default_rcfile_location = os.path.join(maildirproc_directory, "default.rc")
     default_logfile_location = os.path.join(maildirproc_directory, "log")
+    default_pidfile_location = os.path.expanduser(os.path.join(
+        maildirproc_directory, "pid"))
 
     if not os.path.isdir(os.path.expanduser(maildirproc_directory)):
         os.mkdir(os.path.expanduser(maildirproc_directory))
@@ -694,7 +702,24 @@ def main(argv):
         default=0,
         dest="verbosity",
         help="increase log level one step")
+
+    argv = sys.argv
     (options, _) = parser.parse_args(argv[1:])
+    
+    def cleanup():
+        if os.path.exists(default_pidfile_location):
+            try:
+                os.unlink(default_pidfile_location)
+            except:
+                pass
+        sys.exit(0)
+
+    def signal_handler(signal, frame):
+        print("Received signal {0} - attempting to shut down".format(signal))
+        cleanup()
+    
+    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGHUP, signal_handler)
 
     if options.test:
         options.dry_run = True
@@ -719,6 +744,7 @@ def main(argv):
     processor = MaildirProcessor(
         rcfile, log_fp, log_level, options.dry_run, options.once,
         options.auto_reload_rcfile)
+    pid_write(default_pidfile_location)
     processor.log("")
     processor.log(
         "Starting maildirproc {0} at {1}".format(
@@ -751,9 +777,7 @@ def main(argv):
                     # Normal exit.
                     break
                 # We should reload the RC file.
+    cleanup()
 
-
-try:
-    main(sys.argv)
-except KeyboardInterrupt:
-    pass
+if __name__ == "__main__":
+    sys.exit(main())
