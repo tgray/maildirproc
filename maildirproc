@@ -47,7 +47,6 @@ from email import header as email_header
 from email import parser as email_parser
 from optparse import OptionParser
 
-
 if sys.version_info[0] >= 3:
     basestring = str
 else:
@@ -177,6 +176,10 @@ class MailTarget(object):
 
 
 class MailBase(object):
+    
+    list_headers = ["delivered-to", "mailing-list", "x-beenthere",
+        "x-mailing-list", "list-id"]
+
     def __init__(self, processor, maildir, mail_path):
         self._processor = processor
         self._maildir = maildir
@@ -208,9 +211,7 @@ class MailBase(object):
 
     def from_mailing_list(self, list_name):
         list_name = list_name.lower()
-        for headername in [
-                "delivered-to", "mailing-list", "x-beenthere",
-                "x-mailing-list", "list-id"]:
+        for headername in self.list_headers:
             if self[headername].contains(list_name):
                 self._processor.log_debug(
                     "... Mail is on mailing list {0}".format(list_name))
@@ -218,6 +219,16 @@ class MailBase(object):
         self._processor.log_debug(
             "... Mail is not on mailing list {0}".format(list_name))
         return False
+
+    def is_mailing_list(self):
+        list_headers = [x.lower() for x in self.list_headers]
+        headers = [x.lower() for x in self._headers.keys()]
+        intersection = list(set(list_headers) & set(headers))
+        if intersection:
+            flag = True
+        else:
+            flag = self["Precedence"].matches(r"bulk|list")
+        return flag
 
     # ----------------------------------------------------------------
 
