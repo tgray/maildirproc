@@ -31,6 +31,8 @@ part of the delivery chain), maildirproc only processes already
 delivered mail. And that's a feature, not a bug.
 """
 
+__version_info__ = (0, 5, 1)
+__version__ = '.'.join([str(i) for i in __version_info__])
 
 import hashlib
 import locale
@@ -624,9 +626,11 @@ def main():
 
     if not os.path.isdir(os.path.expanduser(maildirproc_directory)):
         os.mkdir(os.path.expanduser(maildirproc_directory))
+    
+    version = "%prog " +  "%s" % (__version__)
 
     parser = OptionParser(
-        version="0.5.0",
+        version = version,
         description=(
             "maildirproc is a program that scans a number of maildir mail"
             " boxes and processes found mail as defined by an rc file. See"
