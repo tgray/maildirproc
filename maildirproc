@@ -48,7 +48,7 @@ import signal
 from email import errors as email_errors
 from email import header as email_header
 from email import parser as email_parser
-from optparse import OptionParser
+from argparse import ArgumentParser
 
 if sys.version_info[0] >= 3:
     basestring = str
@@ -263,12 +263,12 @@ class MailBase(object):
         self._processor.log("New mail detected at {0}:".format(iso_8601_now()))
         self._processor.log("Path:       {0}".format(ascii(self.path)))
         try:
-            fp = open(self.path, encoding=encoding)
+            fp = open(self.path, encoding = encoding)
         except IOError as e:
             # The file was probably (re)moved by some other process.
             self._processor.log_mail_opening_error(self.path, e)
             return False
-        headers = email_parser.Parser().parse(fp, headersonly=True)
+        headers = email_parser.Parser().parse(fp, headersonly = True)
         fp.close()
         for name in headers.keys():
             value_parts = []
@@ -429,8 +429,8 @@ class Mail(MailBase):
                 self._processor.sendmail_flags,
                 " ".join(addresses)
                 ),
-            shell=True,
-            stdin=subprocess.PIPE)
+            shell = True,
+            stdin = subprocess.PIPE)
         shutil.copyfileobj(source_fp, p.stdin)
         p.stdin.close()
         p.wait()
@@ -449,8 +449,8 @@ class Mail(MailBase):
 
 class MaildirProcessor(object):
     def __init__(
-            self, rcfile, log_fp, log_level=1, dry_run=False, run_once=False,
-            auto_reload_rcfile=False):
+            self, rcfile, log_fp, log_level = 1, dry_run = False, run_once = False,
+            auto_reload_rcfile = False):
         self._rcfile = rcfile
         self._log_fp = log_fp
         self._log_level = log_level
@@ -480,10 +480,10 @@ class MaildirProcessor(object):
             self._log_fp = open(
                 os.path.expanduser(path_or_fp),
                 "a",
-                errors="backslashreplace")
+                errors = "backslashreplace")
         else:
             self._log_fp = path_or_fp
-    logfile = property(fset=set_logfile)
+    logfile = property(fset = set_logfile)
 
     def get_maildir_base(self):
         return self._maildir_base
@@ -546,7 +546,7 @@ class MaildirProcessor(object):
                 break
             time.sleep(1)
 
-    def log(self, text, level=1):
+    def log(self, text, level = 1):
         if level <= self._log_level:
             safe_write(self._log_fp, text)
             self._log_fp.flush()
@@ -627,99 +627,98 @@ def main():
     if not os.path.isdir(os.path.expanduser(maildirproc_directory)):
         os.mkdir(os.path.expanduser(maildirproc_directory))
     
-    version = "%prog " +  "%s" % (__version__)
-
-    parser = OptionParser(
-        version = version,
-        description=(
-            "maildirproc is a program that scans a number of maildir mail"
-            " boxes and processes found mail as defined by an rc file. See"
-            " http://joel.rosdahl.net/maildirproc/ for more information."))
-    parser.add_option(
+    parser = ArgumentParser(description = (
+        "maildirproc is a program that scans a number of maildir mail"
+        " boxes and processes found mail as defined by an rc file. See"
+        " http://joel.rosdahl.net/maildirproc/ for more information."))
+    parser.add_argument(
+        "-V",
+        "--version",
+        version = "%(prog)s {0}".format(__version__),
+        action = "version")
+    parser.add_argument(
         "--auto-reload-rcfile",
-        action="store_true",
-        default=False,
-        help=(
+        action = "store_true",
+        default = False,
+        help = (
             "turn on automatic reloading of the rc file when it has been"
             " modified"))
-    parser.add_option(
+    parser.add_argument(
         "--dry-run",
-        action="store_true",
-        default=False,
-        help=(
-            "just log what should have been done; implies --once"))
-    parser.add_option(
+        action = "store_true",
+        default = False,
+        help = ("just log what should have been done; implies --once"))
+    parser.add_argument(
         "-l",
         "--logfile",
-        type="string",
-        dest="logfile",
-        metavar="FILE",
-        help="send log to FILE instead of the default ({0})".format(
+        type = str,
+        dest = "logfile",
+        metavar = "FILE",
+        help = "send log to FILE instead of the default ({0})".format(
             default_logfile_location),
-        default=default_logfile_location)
-    parser.add_option(
+        default = default_logfile_location)
+    parser.add_argument(
         "--log-level",
-        type="int",
-        metavar="INTEGER",
-        help=(
+        type = int,
+        metavar = "INTEGER",
+        help = (
             "only include log messages with this log level or lower; defaults"
             " to 1"),
-        default=1)
-    parser.add_option(
+        default = 1)
+    parser.add_argument(
         "-m",
         "--maildir",
-        action="append",
-        type="string",
-        default=[],
-        dest="maildirs",
-        metavar="DIRECTORY",
-        help=(
+        action = "append",
+        type = str,
+        default = [],
+        dest = "maildirs",
+        metavar = "DIRECTORY",
+        help = (
             "add DIRECTORY to the set of maildir directories to process (can"
             " be passed multiple times); if DIRECTORY is relative, it is"
             " relative to the maildir base directory"))
-    parser.add_option(
+    parser.add_argument(
         "-b",
         "--maildir-base",
-        type="string",
-        default=".",
-        dest="maildir_base",
-        metavar="DIRECTORY",
-        help="set maildir base directory; defaults to the current working"
+        type = str,
+        default = ".",
+        dest = "maildir_base",
+        metavar = "DIRECTORY",
+        help = "set maildir base directory; defaults to the current working"
              " directory")
-    parser.add_option(
+    parser.add_argument(
         "--once",
-        action="store_true",
-        default=False,
-        help=(
+        action = "store_true",
+        default = False,
+        help = (
             "only process the maildirs once and then exit; without this flag,"
             " maildirproc will scan the maildirs continuously"))
-    parser.add_option(
+    parser.add_argument(
         "-r",
         "--rcfile",
-        type="string",
-        dest="rcfile",
-        metavar="FILE",
-        help=(
+        type = str,
+        dest = "rcfile",
+        metavar = "FILE",
+        help = (
             "use the given rc file instead of the default ({0})".format(
                 default_rcfile_location)),
-        default=default_rcfile_location)
-    parser.add_option(
+        default = default_rcfile_location)
+    parser.add_argument(
         "--test",
-        action="store_true",
-        default=False,
-        help=(
+        action = "store_true",
+        default = False,
+        help = (
             "test mode; implies --dry-run, --once, --logfile=- and"
             " --verbose"))
-    parser.add_option(
+    parser.add_argument(
         "-v",
         "--verbose",
         action="count",
         default=0,
         dest="verbosity",
         help="increase log level one step")
-
-    argv = sys.argv
-    (options, _) = parser.parse_args(argv[1:])
+    
+    options = parser.parse_args()
     
     def cleanup():
         if os.path.exists(default_pidfile_location):
@@ -753,8 +752,8 @@ def main():
         log_fp = open(
             os.path.expanduser(options.logfile),
             "a",
-            encoding=locale.getpreferredencoding(),
-            errors="backslashreplace")
+            encoding = locale.getpreferredencoding(),
+            errors = "backslashreplace")
 
     log_level = options.log_level + options.verbosity
 
@@ -764,9 +763,8 @@ def main():
         options.auto_reload_rcfile)
     pid_write(default_pidfile_location)
     processor.log("")
-    processor.log(
-        "Starting maildirproc {0} at {1}".format(
-            parser.version, iso_8601_now()))
+    processor.log("Starting maildirproc {0} at {1}".format(__version__,
+        iso_8601_now()))
 
     processor.maildir_base = options.maildir_base
     if options.maildirs:
