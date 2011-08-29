@@ -192,6 +192,8 @@ class MailBase(object):
         self._processor = processor
         self._maildir = maildir
         self._path = mail_path
+        self._subdir = mail_path.split(os.sep)[-2]
+        self._info = os.path.basename(mail_path).split(':')[-1]
         self._target = MailTarget(self)
         self._headers = {}
         if self._parse_mail():
@@ -212,6 +214,52 @@ class MailBase(object):
     @property
     def target(self):
         return self._target
+
+    @property
+    def subdir(self):
+        """The message's subdir, 'new' or 'cur'."""
+        return self._subdir
+
+    @subdir.setter
+    def subdir(self, value):
+        if value == 'new' or value == 'cur':
+            self._subdir = value
+        else:
+            raise ValueError("subdir must be 'new' or 'cur': {0}".format( 
+                subdir))
+
+    @property
+    def info(self):
+        """The message's "info" as a string."""
+        return self._info
+
+    @info.setter
+    def info(self, info):
+        if isinstance(info, str):
+            self._info = info
+        else:
+            raise TypeError('info must be a string: {0}'.format(type(info)))
+
+    @property
+    def flags(self):
+        """The message's "flags" as a string."""
+        if self._info.startswith('2,'):
+            return self._info[2:]
+        else:
+            return ''
+        
+    @flags.setter
+    def flags(self, flags):
+        self.info = '2,' + ''.join(sorted(flags))
+
+    def add_flag(self, flag):
+        """Set the given flag(s) without changing others."""
+        self.flags = ''.join(set(self.flags) | set(flag))
+
+    def remove_flag(self, flag):
+        """Unset the given string flag(s) without changing others."""
+        if self.flags:
+            self.flags = ''.join(set(self.flags) - set(flag))
 
     def __getitem__(self, header_name):
         return MailHeader(
@@ -292,37 +340,6 @@ class MailBase(object):
         return True
 
 
-class DryRunMail(MailBase):
-    def copy(self, maildir):
-        self._processor.log("==> Copying to {0}".format(maildir))
-
-    def delete(self):
-        self._processor.log("==> Deleting")
-
-    def forward(self, addresses):
-        self._forward(True, addresses)
-
-    def forward_copy(self, addresses):
-        self._forward(False, addresses)
-
-    def move(self, maildir):
-        self._processor.log("==> Moving to {0}".format(maildir))
-
-    # ----------------------------------------------------------------
-
-    def _forward(self, delete, addresses):
-        if isinstance(addresses, basestring):
-            addresses = [addresses]
-        else:
-            addresses = list(addresses)
-        if not delete:
-            copy = " copy"
-        else:
-            copy = ""
-        self._processor.log(
-            "==> Forwarding{0} to {1!r}".format(copy, addresses))
-
-
 class Mail(MailBase):
     def copy(self, maildir):
         self._processor.log("==> Copying to {0}".format(maildir))
@@ -339,16 +356,61 @@ class Mail(MailBase):
         self._forward(False, addresses)
 
     def move(self, maildir):
+        """Moves the message to the given maildir."""
         self._processor.log("==> Moving to {0}".format(maildir))
-        flagpart = self._get_flagpart()
-        target = os.path.join(
-            self._processor.maildir_base,
-            maildir,
-            self.path.split(os.sep)[-2], # new/cur
-            self._processor.create_maildir_name() + flagpart)
-        self._processor.rename(self.path, target)
+        self._maildir = maildir
+        self._move()
+    
+    def mark_read(self):
+        """Marks the message as read.
+
+        Adds the 'S' flag.  Must be followed by either a move() or a keep()."""
+        self._processor.log("==> Marking as read")
+        self.add_flag('S')
+
+    def mark_unread(self):
+        """Marks the message as unread.
+
+        Removes the 'S' flag.  Must be followed by either a move() or a
+        keep()."""
+        self._processor.log("==> Marking as unread")
+        self.remove_flag('S')
+
+    def mark_old(self):
+        """Marks the message as read.
+
+        Adds the 'S' flag and moves the message to the 'cur' subdirectory. Must
+        be followed by either a move() or a keep()."""
+        self._processor.log("==> Marking as old")
+        self.subdir = 'cur'
+        self.add_flag('S')
+
+    def mark_new(self):
+        """Marks the message as read.
+
+        Removes the 'S' flag and moves the message to the 'new' subdirectory.
+        Must be followed by either a move() or a keep()."""
+        self._processor.log("==> Marking as new")
+        self.subdir = 'new'
+        self.remove_flag('S')
+
+    def keep(self):
+        """Saves the message in place.
+
+        Essentially calls the move() method without changing a target
+        maildir."""
+        self._processor.log("==> Saving in place to {0}".format(self.maildir))
+        self._move()
 
     # ----------------------------------------------------------------
+
+    def _move(self):
+        target = os.path.join(
+            self._processor.maildir_base,
+            self.maildir,
+            self.subdir, # new/cur
+            self._processor.create_maildir_name() + ":" + self.info) 
+        self._processor.rename(self.path, target)
 
     def _copy(self, maildir):
         try:
@@ -386,7 +448,7 @@ class Mail(MailBase):
         target = os.path.join(
             self._processor.maildir_base,
             maildir,
-            self.path.split(os.sep)[-2], # new/cur
+            self.subdir, # new/cur
             self._processor.create_maildir_name() + flagpart)
         try:
             self._processor.rename(tmp_target, target)
@@ -446,6 +508,45 @@ class Mail(MailBase):
         else:
             return ""
 
+class DryRunMail(Mail):
+    # All we have to do with the DryRunMail class is to remove that actually
+    # actions in the backend methods (which start with an '_')
+    # TODO: We should probably remove the Mail/Mailbase distinction
+    # ----------------------------------------------------------------
+    
+    def _move(self):
+        target = os.path.join(
+            self._processor.maildir_base,
+            self.maildir,
+            self.subdir, # new/cur
+            self._processor.create_maildir_name() + ":" + self.info) 
+        self._processor.log_debug("==> would have moved msg to {0}".format( 
+            target))
+
+    def _copy(self, maildir):
+        target = os.path.join(
+            self._processor.maildir_base,
+            maildir,
+            self.subdir, # new/cur
+            self._processor.create_maildir_name() + ":" + self.info)
+        self._processor.log_debug("==> would have copied msg to {0}".format( 
+            target))
+    
+    def _delete(self):
+        self._processor.log_debug("==> would have removed msg to {0}".format( 
+            self.path))
+
+    def _forward(self, delete, addresses):
+        if isinstance(addresses, basestring):
+            addresses = [addresses]
+        else:
+            addresses = list(addresses)
+        if not delete:
+            copy = " copy"
+        else:
+            copy = ""
+        self._processor.log(
+            "==> Forwarding{0} to {1!r}".format(copy, addresses))
 
 class MaildirProcessor(object):
     def __init__(
