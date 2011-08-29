@@ -206,6 +206,7 @@ class MailBase(object):
 
     @property
     def subdir(self):
+        """The message's subdir, 'new' or 'cur'."""
         return self._subdir
 
     @subdir.setter
@@ -336,30 +337,50 @@ class Mail(MailBase):
         self._forward(False, addresses)
 
     def move(self, maildir):
+        """Moves the message to the given maildir."""
         self._processor.log("==> Moving to {0}".format(maildir))
-        self.maildir = maildir
+        self._maildir = maildir
         self._move()
     
     def mark_read(self):
+        """Marks the message as read.
+
+        Adds the 'S' flag.  Must be followed by either a move() or a keep()."""
         self._processor.log("==> Marking as read")
         self.add_flag('S')
-        self._move()
 
     def mark_unread(self):
+        """Marks the message as unread.
+
+        Removes the 'S' flag.  Must be followed by either a move() or a
+        keep()."""
         self._processor.log("==> Marking as unread")
         self.remove_flag('S')
-        self._move()
 
     def mark_old(self):
+        """Marks the message as read.
+
+        Adds the 'S' flag and moves the message to the 'cur' subdirectory. Must
+        be followed by either a move() or a keep()."""
         self._processor.log("==> Marking as old")
         self.subdir = 'cur'
         self.add_flag('S')
-        self._move()
 
     def mark_new(self):
+        """Marks the message as read.
+
+        Removes the 'S' flag and moves the message to the 'new' subdirectory.
+        Must be followed by either a move() or a keep()."""
         self._processor.log("==> Marking as new")
         self.subdir = 'new'
         self.remove_flag('S')
+
+    def keep(self):
+        """Saves the message in place.
+
+        Essentially calls the move() method without changing a target
+        maildir."""
+        self._processor.log("==> Saving in place to {0}".format(self.maildir))
         self._move()
 
     # ----------------------------------------------------------------
