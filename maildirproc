@@ -220,13 +220,29 @@ class MailBase(object):
             "... Mail is not on mailing list {0}".format(list_name))
         return False
 
-    def is_mailing_list(self):
-        list_headers = [x.lower() for x in self.list_headers]
-        headers = [x.lower() for x in self._headers.keys()]
-        intersection = list(set(list_headers) & set(headers))
+    def has_headers(self, headers):
+        """Checks for the existence of the specified headers.
+
+        headers can be a string or a list.  If it's a string, it is converted
+        to a list for checking.  The matching condition for multiple headers is
+        ANY, not ALL."""
+        if isinstance(headers, str):
+            headers = [headers,]
+        headers = [h.lower() for h in headers]
+        msg_headers = [x.lower() for x in self._headers.keys()]
+        intersection = list(set(headers) & set(msg_headers))
         if intersection:
-            flag = True
+            return True
         else:
+            return False
+
+    def is_mailing_list(self):
+        """Checks to see if the message is from a mailing list.
+
+        Looks for the existence of certain headers that mailing lists add."""
+        list_headers = [x.lower() for x in self.list_headers]
+        flag = self.has_headers(list_headers)
+        if not flag:
             flag = self["Precedence"].matches(r"bulk|list")
         return flag
 
